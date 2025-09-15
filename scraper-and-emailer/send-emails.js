@@ -1,68 +1,74 @@
-const sqlite3 = require("sqlite3").verbose();
+import sqlite3 from 'sqlite3';
+sqlite3.verbose();
+
 import { sendEmail } from './mailer.js';
 import { qrFeedbackTemplate } from './templates/qrFeedback.js';
 import { renderTemplate } from './utils/renderTemplate.js';
 
-async function SendEmailToCoffeeShop(toEmail,shopName) {
+// Function to send email to a coffee shop
+async function SendEmailToCoffeeShop(email, shopName) {
   const filled = renderTemplate(qrFeedbackTemplate, {
     shopName: shopName,
     guestType: "coffee shop guests",
   });
 
   await sendEmail({
-    toEmail: toEMail,
-    toName: toName,
+    toEmail: email,
+    toName: shopName,
     subject: filled.subject,
     textBody: filled.textBody,
     htmlBody: filled.htmlBody,
   });
 }
 
-;
-
 // Open database
 const db = new sqlite3.Database("./emails.db");
 
+// Helper function to add a delay
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Function to process unsent emails
 function processEmails() {
-  db.serialize(() => {
-    // Select unsent emails
-    db.each(
-      "SELECT id, shop_name, website, email FROM emails WHERE emailSent = 0",
-      async (err, row) => {
-        if (err) {
-          console.error("Error fetching email:", err);
-          return;
-        }
+  db.all(
+    "SELECT id, shop_name, website, email FROM emails WHERE emailSent = 0",
+    async (err, rows) => {
+      if (err) {
+        console.error("Error fetching emails:", err);
+        return;
+      }
 
+      for (const row of rows) {
         console.log(`Sending email to: ${row.email} (Shop: ${row.shop_name})`);
-        sendEmailToCoffeeShop(${row.email},${row.shopName});
         try {
-          // ---- Your real email-sending logic goes here ----
-          // await fakeSendEmail(row.email);
+          // Send the email
+          await SendEmailToCoffeeShop(row.email, row.shop_name);
 
-          await sendEmailToCoffeeShop(${row.email},${row.shopName});
-
-          // Mark as sent
+          // Mark email as sent
           db.run(
             "UPDATE emails SET emailSent = 1 WHERE id = ?",
             [row.id],
             (err) => {
-              if (err) {
-                console.error("Error updating emailSent:", err);
-              } else {
-                console.log(`✔ Marked ${row.email} as sent`);
-              }
+              if (err) console.error("Error updating emailSent:", err);
+              else console.log(`✔ Marked ${row.email} as sent`);
             }
           );
+
+          // Wait 1 second before sending the next email
+          await sleep(1000);
         } catch (sendErr) {
           console.error(`❌ Failed to send to ${row.email}:`, sendErr);
         }
       }
-    );
-  });
+
+      console.log("✅ Finished processing all emails.");
+    }
+  );
 }
 
-// Example async "send email"
+// Example async "send email" function (for testing)
+// You can replace this with your real sendEmail function
 function fakeSendEmail(email) {
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -72,4 +78,6 @@ function fakeSendEmail(email) {
   });
 }
 
+// Start processing emails
 processEmails();
+

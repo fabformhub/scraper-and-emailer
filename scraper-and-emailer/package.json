@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "node-mailjet": "^6.0.9",
     "sqlite3": "^5.1.7"
   }
 }
